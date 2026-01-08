@@ -1,36 +1,48 @@
 import requests, sys, json
 from bs4 import BeautifulSoup
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 results = []
 
+# ================== BANNER ==================
 def banner():
-    print("""
-████████╗███████╗ ██████╗██╗  ██╗██████╗ ███████╗████████╗
-╚══██╔══╝██╔════╝██╔════╝██║  ██║██╔══██╗██╔════╝╚══██╔══╝
-   ██║   █████╗  ██║     ███████║██║  ██║█████╗     ██║
-   ██║   ██╔══╝  ██║     ██╔══██║██║  ██║██╔══╝     ██║
-   ██║   ███████╗╚██████╗██║  ██║██████╔╝███████╗   ██║
-   ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝   ╚═╝
-        Technology Detection Tool
-    """)
+    print(Fore.RED + Style.BRIGHT + r"""
+ ████████╗███████╗ ██████╗██╗  ██╗██████╗ ███████╗████████╗
+ ╚══██╔══╝██╔════╝██╔════╝██║  ██║██╔══██╗██╔════╝╚══██╔══╝
+    ██║   █████╗  ██║     ███████║██║  ██║█████╗     ██║
+    ██║   ██╔══╝  ██║     ██╔══██║██║  ██║██╔══╝     ██║
+    ██║   ███████╗╚██████╗██║  ██║██████╔╝███████╗   ██║
+    ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝   ╚═╝
+""")
+    print(Fore.YELLOW + " Technology Detection Tool")
+    print(Fore.CYAN + " Author    : Gobinda")
+    print(Fore.CYAN + " Instagram : @_g_o_b_i_n_d_a__200\n")
 
+# ================== SCAN FUNCTION ==================
 def scan_url(url):
+    print(Fore.CYAN + f"\n[+] Scanning: {url}")
     data = {"url": url, "headers": {}, "technologies": []}
 
     try:
         r = requests.get(url, timeout=10, headers={"User-Agent": "TechDetect"})
     except:
+        print(Fore.RED + "[-] Unreachable")
         data["error"] = "Unreachable"
         results.append(data)
         return
 
+    # Header detection
     for h in ["server", "x-powered-by"]:
         if h in r.headers:
             data["headers"][h] = r.headers[h]
+            print(Fore.GREEN + f"    {h}: {r.headers[h]}")
 
     html = r.text.lower()
     soup = BeautifulSoup(html, "html.parser")
 
+    # Load signatures
     with open("signatures.json") as f:
         sigs = json.load(f)
 
@@ -38,16 +50,21 @@ def scan_url(url):
         for tech, patterns in techs.items():
             for p in patterns:
                 if p in html:
-                    data["technologies"].append(f"{category}: {tech}")
+                    tech_line = f"{category}: {tech}"
+                    print(Fore.YELLOW + f"    {tech_line}")
+                    data["technologies"].append(tech_line)
                     break
 
+    # CDN detect
     for s in soup.find_all("script"):
         src = s.get("src")
         if src and "cloudflare" in src.lower():
+            print(Fore.BLUE + "    CDN: Cloudflare")
             data["technologies"].append("CDN: Cloudflare")
 
     results.append(data)
 
+# ================== SAVE OUTPUT ==================
 def save_txt(file):
     with open(file, "w") as f:
         for r in results:
@@ -55,7 +72,7 @@ def save_txt(file):
             if "error" in r:
                 f.write("  ERROR: Unreachable\n")
                 continue
-            for k,v in r["headers"].items():
+            for k, v in r["headers"].items():
                 f.write(f"  {k}: {v}\n")
             for t in r["technologies"]:
                 f.write(f"  {t}\n")
@@ -64,24 +81,35 @@ def save_json(file):
     with open(file, "w") as f:
         json.dump(results, f, indent=4)
 
+# ================== MAIN ==================
 def main():
     banner()
 
-    if "-l" not in sys.argv:
-        print("Usage: python techdetect.py -l urls.txt [-o out.txt] [-j out.json]")
+    if "-u" not in sys.argv and "-l" not in sys.argv:
+        print(Fore.YELLOW + "Usage:")
+        print("  Single URL : python techdetect.py -u https://example.com")
+        print("  URL List   : python techdetect.py -l urls.txt")
+        print("  Output     : -o out.txt  -j out.json")
         return
 
-    urls = open(sys.argv[sys.argv.index("-l")+1]).read().splitlines()
-    for u in urls:
-        scan_url(u.strip())
+    if "-u" in sys.argv:
+        url = sys.argv[sys.argv.index("-u") + 1]
+        scan_url(url)
+
+    if "-l" in sys.argv:
+        file = sys.argv[sys.argv.index("-l") + 1]
+        with open(file) as f:
+            urls = [u.strip() for u in f if u.strip()]
+        for url in urls:
+            scan_url(url)
 
     if "-o" in sys.argv:
-        save_txt(sys.argv[sys.argv.index("-o")+1])
+        save_txt(sys.argv[sys.argv.index("-o") + 1])
 
     if "-j" in sys.argv:
-        save_json(sys.argv[sys.argv.index("-j")+1])
+        save_json(sys.argv[sys.argv.index("-j") + 1])
 
-    print("\n[+] Scan completed successfully ✔")
+    print(Fore.GREEN + "\n[✔] Scan completed successfully")
 
 if __name__ == "__main__":
     main()
