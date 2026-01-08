@@ -1,3 +1,23 @@
+def main():
+    banner()
+
+    # ====== Y ======
+    if "--update" in sys.argv:
+        try:
+            category = sys.argv[sys.argv.index("--update") + 1]
+            tech = sys.argv[sys.argv.index("--update") + 2]
+            patterns = sys.argv[sys.argv.index("--update") + 3].split(",")
+
+            update_signatures(category, tech, patterns)
+            print(Fore.CYAN + "[i] Signature added. Ab scan chalao.")
+            return
+        except:
+            print(Fore.RED + "Usage:")
+            print(" python techdetect.py --update <Category> <TechName> <pattern1,pattern2>")
+            return
+    # ====== YK ======
+
+    # 👇 iske baad tumhara existing -u / -l code rahega
 import requests, sys, json
 from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
@@ -16,9 +36,21 @@ def banner():
     ██║   ███████╗╚██████╗██║  ██║██████╔╝███████╗   ██║
     ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝   ╚═╝
 """)
+
     print(Fore.YELLOW + " Technology Detection Tool")
     print(Fore.CYAN + " Author    : Gobinda")
     print(Fore.CYAN + " Instagram : @_g_o_b_i_n_d_a__200\n")
+
+
+    def update_signatures(category, tech_name, patterns):
+    global SIGNATURES
+
+    if category not in SIGNATURES:
+        SIGNATURES[category] = {}
+
+    SIGNATURES[category][tech_name] = patterns
+    print(Fore.GREEN + f"[✔] Signature updated → {category}: {tech_name}")
+
 
 # ================== SCAN FUNCTION ==================
 def scan_url(url):
