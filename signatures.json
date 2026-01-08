@@ -7,7 +7,6 @@
     "Blogger": ["blogger"],
     "Ghost": ["ghost"]
   },
-
   "Framework": {
     "Laravel": ["laravel_session"],
     "Django": ["csrftoken"],
@@ -15,7 +14,6 @@
     "Spring": ["jsessionid"],
     "Express": ["express"]
   },
-
   "JavaScript": {
     "jQuery": ["jquery"],
     "React": ["react"],
@@ -24,13 +22,11 @@
     "Next.js": ["_next"],
     "Nuxt": ["_nuxt"]
   },
-
   "Server": {
     "Apache": ["apache"],
     "Nginx": ["nginx"],
     "LiteSpeed": ["litespeed"]
   },
-
   "CDN / Security": {
     "Cloudflare": ["cloudflare", "cf-ray"],
     "Akamai": ["akamai"],
