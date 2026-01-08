@@ -43,8 +43,8 @@ def scan_url(url):
     soup = BeautifulSoup(html, "html.parser")
 
     # Load signatures
-    with open("signatures.json") as f:
-        sigs = json.load(f)
+    sigs = load_signatures()
+
 
     for category, techs in sigs.items():
         for tech, patterns in techs.items():
