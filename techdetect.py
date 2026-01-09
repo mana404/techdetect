@@ -1,51 +1,33 @@
 import requests, sys, json, os
 from colorama import Fore, Style, init
+import urllib3
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 init(autoreset=True)
 
 SIGNATURES_FILE = "signatures.json"
-RESULTS_FILE = "results.json"
+RESULT_JSON = "results.json"
+RESULT_TXT = "results.txt"
 
-# ================== DEFAULT SIGNATURES ==================
+# ================= DEFAULT SIGNATURES =================
 DEFAULT_SIGNATURES = {
     "CMS": {
         "WordPress": ["wp-content", "wp-includes"],
-        "Drupal": ["sites/default"],
-        "Joomla": ["com_content"]
+        "Shopify": ["cdn.shopify.com", "shopify"],
+        "Drupal": ["sites/default"]
     },
     "Framework": {
         "Laravel": ["laravel_session"],
         "Django": ["csrftoken"]
     },
     "JavaScript": {
-        "jQuery": ["jquery"],
         "React": ["react"],
-        "Vue": ["vue"]
+        "Vue": ["vue"],
+        "jQuery": ["jquery"]
     }
 }
 
-# ================== JSON HANDLING ==================
-def load_signatures():
-    if not os.path.exists(SIGNATURES_FILE):
-        with open(SIGNATURES_FILE, "w") as f:
-            json.dump(DEFAULT_SIGNATURES, f, indent=4)
-        print(Fore.YELLOW + "[i] signatures.json not found. Created default signatures.")
-        return DEFAULT_SIGNATURES
-    with open(SIGNATURES_FILE, "r") as f:
-        return json.load(f)
-
-def save_signatures(signatures):
-    with open(SIGNATURES_FILE, "w") as f:
-        json.dump(signatures, f, indent=4)
-
-def save_results(results):
-    with open(RESULTS_FILE, "w") as f:
-        json.dump(results, f, indent=4)
-    print(Fore.CYAN + f"[i] Results saved to {RESULTS_FILE}")
-
-SIGNATURES = load_signatures()
-
-# ================== BANNER ==================
+# ================= BANNER =================
 def banner():
     print(Fore.RED + Style.BRIGHT + r"""
  ████████╗███████╗ ██████╗██╗  ██╗██████╗ ███████╗████████╗
@@ -56,101 +38,123 @@ def banner():
     ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝   ╚═╝
 """)
     print(Fore.YELLOW + " Technology Detection Tool")
-    print(Fore.CYAN + " Author    : Gobinda")
+    print(Fore.CYAN + " Author : Gobinda")
     print(Fore.CYAN + " Instagram : @_g_o_b_i_n_d_a__200\n")
 
-# ================== UPDATE FUNCTION ==================
-def update_signatures(category, tech_name, patterns):
-    if category not in SIGNATURES:
-        SIGNATURES[category] = {}
-    SIGNATURES[category][tech_name] = patterns
-    save_signatures(SIGNATURES)
-    print(Fore.GREEN + f"[✔] Signature updated → {category}: {tech_name}")
+# ================= SIGNATURE HANDLING =================
+def load_signatures():
+    if not os.path.exists(SIGNATURES_FILE):
+        with open(SIGNATURES_FILE, "w") as f:
+            json.dump(DEFAULT_SIGNATURES, f, indent=4)
+        print(Fore.YELLOW + "[i] signatures.json created")
+        return DEFAULT_SIGNATURES
+    with open(SIGNATURES_FILE, "r") as f:
+        return json.load(f)
 
-# ================== SCAN FUNCTION ==================
+def save_signatures(data):
+    with open(SIGNATURES_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+SIGNATURES = load_signatures()
+
+# ================= UPDATE MODE =================
+def update_mode():
+    print(Fore.CYAN + "[+] Update mode")
+    cat = input("Category: ")
+    tech = input("Tech name: ")
+    patterns = input("Patterns (comma separated): ").split(",")
+
+    if cat not in SIGNATURES:
+        SIGNATURES[cat] = {}
+
+    SIGNATURES[cat][tech] = [p.strip().lower() for p in patterns]
+    save_signatures(SIGNATURES)
+
+    print(Fore.GREEN + "[✔] Signature updated & saved")
+
+# ================= SCAN =================
 def scan_url(url):
     result = {"url": url, "headers": {}, "technologies": []}
     print(Fore.CYAN + f"[+] Scanning: {url}")
 
     try:
-        r = requests.get(url, timeout=10, headers={"User-Agent": "TechDetect"})
-        r.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(Fore.RED + f"[-] Unreachable: {e}")
+        r = requests.get(
+            url,
+            timeout=10,
+            verify=False,
+            headers={"User-Agent": "TechDetect"}
+        )
+    except Exception as e:
+        print(Fore.RED + "[-] Failed")
         result["error"] = str(e)
         return result
 
-    # Header detection
     for h in ["server", "x-powered-by"]:
         if h in r.headers:
             result["headers"][h] = r.headers[h]
 
     html = r.text.lower()
 
-    # Detect technologies using already loaded SIGNATURES
     for category, techs in SIGNATURES.items():
         for tech, patterns in techs.items():
-            if any(p.lower() in html for p in patterns):
-                result["technologies"].append({"category": category, "name": tech})
-
-    # Print to console
-    if result["headers"]:
-        for h, v in result["headers"].items():
-            print(Fore.GREEN + f"    {h}: {v}")
-    if result["technologies"]:
-        for t in result["technologies"]:
-            print(Fore.YELLOW + f"    {t['category']}: {t['name']}")
-    else:
-        print(Fore.RED + "    No technologies detected.")
+            if any(p in html for p in patterns):
+                result["technologies"].append({
+                    "category": category,
+                    "name": tech
+                })
+                print(Fore.YELLOW + f"    {category}: {tech}")
 
     return result
 
-# ================== MAIN ==================
+# ================= USAGE =================
+def usage():
+    print(Fore.YELLOW + "Use:")
+    print(" python techdetect.py -u https://example.com -json")
+    print(" python techdetect.py -f urls.txt -o")
+    print(" python techdetect.py -f urls.txt -json -o")
+    print(" python techdetect.py --update")
+
+# ================= MAIN =================
 def main():
     banner()
 
-    # ---------- UPDATE MODE ----------
     if "--update" in sys.argv:
-        try:
-            idx = sys.argv.index("--update")
-            category = sys.argv[idx + 1]
-            tech = sys.argv[idx + 2]
-            patterns = sys.argv[idx + 3].split(",")
-            update_signatures(category, tech, patterns)
-            print(Fore.CYAN + "[i] Update complete. Ab scan command chalao.")
-            return
-        except Exception as e:
-            print(Fore.RED + "Usage:")
-            print(" python techdetect.py --update <Category> <TechName> <pattern1,pattern2>")
-            print(Fore.RED + f"Error: {e}")
-            return
-
-    # ---------- SCAN MODE ----------
-    urls = []
-    if "-u" in sys.argv:
-        urls.append(sys.argv[sys.argv.index("-u") + 1])
-    elif "-f" in sys.argv:
-        file_path = sys.argv[sys.argv.index("-f") + 1]
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                urls = [line.strip() for line in f if line.strip()]
-        else:
-            print(Fore.RED + f"File not found: {file_path}")
-            return
-    else:
-        print(Fore.YELLOW + "Usage:")
-        print(" python techdetect.py -u https://example.com")
-        print(" python techdetect.py -f urls.txt   (file containing multiple URLs)")
-        print(" python techdetect.py --update CMS Shopify cdn.shopify.com,shopify")
+        update_mode()
         return
 
-    all_results = []
+    urls = []
+
+    if "-u" in sys.argv:
+        urls.append(sys.argv[sys.argv.index("-u") + 1])
+
+    elif "-f" in sys.argv:
+        file_path = sys.argv[sys.argv.index("-f") + 1]
+        if not os.path.exists(file_path):
+            print(Fore.RED + "URL file not found")
+            return
+        urls = [u.strip() for u in open(file_path) if u.strip()]
+
+    else:
+        usage()
+        return
+
+    results = []
     for url in urls:
-        res = scan_url(url)
-        all_results.append(res)
+        results.append(scan_url(url))
 
-    save_results(all_results)
+    if "-json" in sys.argv:
+        with open(RESULT_JSON, "w") as f:
+            json.dump(results, f, indent=4)
+        print(Fore.GREEN + f"[✔] Saved {RESULT_JSON}")
 
-# ================== RUN ==================
+    if "-o" in sys.argv:
+        with open(RESULT_TXT, "w") as f:
+            for r in results:
+                f.write(r["url"] + "\n")
+                for t in r["technologies"]:
+                    f.write(f"  {t['category']}: {t['name']}\n")
+                f.write("\n")
+        print(Fore.GREEN + f"[✔] Saved {RESULT_TXT}")
+
 if __name__ == "__main__":
     main()
